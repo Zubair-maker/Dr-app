@@ -1,5 +1,5 @@
 import { User } from "../models/userModel.js";
-import {ApiError} from "../utils/ApiError.js";
+import { ApiError } from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 
@@ -15,7 +15,7 @@ const registerUser = asyncHandler(async (req, res) => {
   });
 
   if (existedUser) {
-    throw new ApiError(409, ERROR_MESSAGES.USER_EXISTS);
+    throw new ApiError(409, "user is already exist");
   }
 
   const user = await User.create({
@@ -28,7 +28,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   const cretedUser = await User.findById(user._id).select("-password");
   if (!cretedUser) {
-    throw new ApiError(500, ERROR_MESSAGES.SERVER_ERROR);
+    throw new ApiError(403, "user is not found");
   }
   const option = {
     httpOnly: true,
@@ -38,19 +38,33 @@ const registerUser = asyncHandler(async (req, res) => {
   const token = user.generateAuthToken();
   console.log("token", token);
   //send response to client
-  res
-    .status(201)
-    .cookie("token", token, option)
-    .json(
-      new ApiResponse(
-        200,
-        {
-          user: cretedUser,
-          token,
-        },
-        "User Registered Succesfully!"
-      )
-    );
+  res.status(201).json(
+    new ApiResponse(
+      200,
+
+      cretedUser,
+
+      "User Registered Succesfully!"
+    )
+  );
 });
 
-export { registerUser };
+const loginUser = asyncHandler(async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    throw new ApiError(400, "username and password is required");
+  }
+  const user = await User.findOne({ username })
+  if (!user) {
+    throw new ApiError(401, "username not found");
+  }
+  const passswordIsMatch = await user.isPasswordCorrect(password);
+  if (!passswordIsMatch) {
+    throw new ApiError(401, "Invalid username and password!!");
+  }
+  const token = user.generateAuthToken();
+
+  res.status(201).json(new ApiResponse(200, {token}, "User login Succesfully!"));
+});
+
+export { registerUser, loginUser};
